@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+
+<div class="main-container">
+    <div class="app-header">
+        <h1>
+            Task Manager
+            <span id="cloudStatusIndicator" class="cloud-status" style="display:none;">☁️</span>
+        </h1>
+        
+        <div class="header-right">
+            <button id="btnOpenWidgets" class="btn-header-action" title="Виджеты (iOS Style)">
+                <span style="font-size: 20px; line-height: 1;">📱</span>
+            </button>
+            <button id="btnOpenAddTask" class="btn-header-action" title="Новая задача">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+
+            <!-- Аккаунт Google (скрыт до входа) -->
+            <div id="accountChip" class="account-chip" style="display:none;" onclick="toggleAccountDropdown()">
+                <div class="account-avatar" id="chipAvatar">?</div>
+                <span class="account-name" id="chipName">Аккаунт</span>
+            </div>
+
+            <!-- Дропдаун профиля -->
+            <div id="accountDropdown" class="account-dropdown">
+                <div class="account-dropdown-header">
+                    <div class="account-dropdown-avatar" id="dropAvatar">?</div>
+                    <div class="account-dropdown-name" id="dropName">—</div>
+                    <div class="account-dropdown-email" id="dropEmail">—</div>
+                </div>
+                <button class="account-dropdown-btn" onclick="manualSync()">
+                    ☁️ Синхронизировать сейчас
+                </button>
+                <button class="account-dropdown-btn danger" onclick="signOut()">
+                    🚪 Выйти из аккаунта
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="authBanner" class="auth-banner">
+        <span>⚠️ Войдите в Google — задачи будут автоматически синхронизироваться на всех устройствах.</span>
+        <button id="btnForceLogin" class="btn-auth-main">🔑 Войти через Google</button>
+    </div>
+
+    <div class="tasks-section">
+        <div class="tasks-header">
+            <h2>Текущие задачи</h2>
+            <select id="mobileSortSelect" class="mobile-sort-select">
+                <option value="none">Без сортировки (Ручной Drag)</option>
+                <option value="name">Сортировка: По имени</option>
+                <option value="priority">Сортировка: По приоритету</option>
+                <option value="project">Сортировка: По проекту</option>
+                <option value="deadline">Сортировка: По дедлайну</option>
+            </select>
+        </div>
+        
+        <div class="table-headers">
+            <div></div> <div></div> <div class="sortable" data-sort="name">Name <span class="sort-icon">▼</span></div>
+            <div class="sortable" data-sort="priority">Priority <span class="sort-icon">▼</span></div>
+            <div class="sortable" data-sort="project">Project <span class="sort-icon">▼</span></div>
+            <div class="sortable" data-sort="deadline">Deadline <span class="sort-icon">▼</span></div>
+            <div>Comments</div>
+            <div></div> </div>
+        <div id="taskListContainer" class="task-list-container"></div>
+    </div>
+</div>
+
+<button id="btnOpenTrash" class="btn-trash-floating" title="Корзина">
+    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+    <span id="trashBadgeCount" class="trash-badge">0</span>
+</button>
+
+<div id="addTaskModal" class="modal-overlay">
+    <div class="modal-content modal-content-sm">
+        <div class="modal-header">
+            <h2>📝 Создать задачу</h2>
+            <button id="btnCloseAddTask" class="btn-close-modal">✕</button>
+        </div>
+        <div class="input-grid">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Название задачи</label>
+                <input type="text" id="taskName" class="input-control" placeholder="Что нужно сделать..." autocomplete="off">
+            </div>
+        </div>
+        <div class="input-grid">
+            <div class="form-group">
+                <label>Приоритет</label>
+                <select id="taskPriority" class="input-control">
+                    <option value="TOP 3">🔥 TOP 3</option>
+                    <option value="High">⚡ High</option>
+                    <option value="Moderate">📈 Moderate</option>
+                    <option value="Low">🌱 Low</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Проект</label>
+                <div class="project-select-wrapper">
+                    <select id="taskProject" class="input-control"></select>
+                    <button type="button" id="btnOpenProjectManager" class="btn-manage-proj">⚙️</button>
+                </div>
+            </div>
+        </div>
+        <div class="input-grid-bottom">
+            <div class="form-group">
+                <label>Дедлайн (опционально)</label>
+                <input type="datetime-local" id="taskDeadline" class="input-control">
+            </div>
+            <div class="form-group">
+                <label>Комментарий (опционально)</label>
+                <input type="text" id="taskComment" class="input-control" placeholder="Доп. информация...">
+            </div>
+        </div>
+        <button id="btnCreate" class="btn-add">Сохранить задачу</button>
+    </div>
+</div>
+
+<div id="projectModal" class="modal-overlay">
+    <div class="modal-content modal-content-sm">
+        <div class="modal-header">
+            <h2>📁 Управление проектами</h2>
+            <button id="btnCloseProjectManager" class="btn-close-modal">✕</button>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+            <input type="text" id="newProjectName" class="input-control" placeholder="Новый проект...">
+            <button id="btnAddProject" class="btn-add" style="padding: 0 16px; width:auto;">+</button>
+        </div>
+        <div id="manageProjectsList"></div>
+    </div>
+</div>
+
+<div id="trashModal" class="modal-overlay">
+    <div class="modal-content modal-content-lg">
+        <div class="modal-header">
+            <h2>🗑️ Корзина (Очистка через 30 дней)</h2>
+            <button id="btnCloseTrash" class="btn-close-modal">✕</button>
+        </div>
+        <div class="table-headers" style="background-color: transparent; grid-template-columns: 32px 32px 2fr 105px 120px 110px 1.5fr 40px;">
+            <div></div><div>Res</div><div>Name</div><div>Priority</div><div>Project</div><div>Days Left</div><div>Comments</div><div>Clear</div>
+        </div>
+        <div id="trashListContainer"></div>
+    </div>
+</div>
+
+<!-- iOS Widgets Modal -->
+<div id="widgetsModal" class="modal-overlay">
+    <div class="modal-content" style="background: transparent; border: none; box-shadow: none; align-items: center; justify-content: flex-start; overflow-y: auto; padding-top: 40px; padding-bottom: 40px; display:flex; flex-direction:column; gap:20px;">
+        <div style="display:flex; justify-content:space-between; width:100%; max-width:330px;">
+            <h2 style="color:white; font-size: 24px; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">iOS Виджеты</h2>
+            <button id="btnCloseWidgets" class="btn-close-modal" style="color:white; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">✕</button>
+        </div>
+        
+        <div class="ios-widget-wrapper">
+            <!-- Medium Widget -->
+            <div class="ios-widget medium" id="iosWidgetMedium">
+                <div class="w-header">Task Manager <span class="w-status">☁️ Активно</span></div>
+                <div class="w-body">
+                    <div class="w-progress-wrapper">
+                        <svg width="80" height="80" style="transform: rotate(-90deg);">
+                            <circle cx="40" cy="40" r="34" fill="none" stroke="#3a3a3c" stroke-width="8"></circle>
+                            <circle id="mwRing" cx="40" cy="40" r="34" fill="none" stroke="#0a84ff" stroke-width="8" stroke-linecap="round" stroke-dasharray="213.62" stroke-dashoffset="213.62" style="transition: stroke-dashoffset 0.5s ease-out;"></circle>
+                        </svg>
+                        <div class="w-progress-icon">🍅</div>
+                    </div>
+                    <div class="w-stats">
+                        <div class="w-stat-val" id="mwTime">0</div>
+                        <div class="w-stat-lbl">Мин фокуса</div>
+                        <div class="w-stat-val" id="mwTasks">0</div>
+                        <div class="w-stat-lbl">Задач готово</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Large Widget -->
+            <div class="ios-widget large" id="iosWidgetLarge">
+                <div class="w-header" id="lwDateHead">Сегодня <span class="w-date" id="lwDateText">Пт, 7 Июн</span></div>
+                <div class="w-top-tasks" id="lwTasks">
+                    <!-- Tasks will be injected here via JS -->
+                </div>
+                <div class="w-footer">
+                    <span id="lwStatus">Фокус 25:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="pomodoro-bottom-bar">
+    <div class="pomo-progress-track"></div>
+    <div id="pomoProgressBar" class="pomo-progress-bar"></div>
+    
+    <div class="pomo-left-group">
+        <div id="pomoStatus" class="pomo-status-pill">Фокус</div>
+        <div id="pomoClock" class="pomo-clock">25:00</div>
+        <div class="pomo-actions">
+            <button id="pomoStartBtn" class="btn-pomo btn-pomo-main">▶</button>
+            <button id="pomoPauseBtn" class="btn-pomo" style="display:none;">❚❚</button>
+            <button id="pomoResetBtn" class="btn-pomo">🔄</button>
+        </div>
+    </div>
+
+    <div class="pomo-center-settings">
+        <div class="pomo-input-subgroup" title="Длительность фокуса"><label>Фокус:</label><input type="number" id="focusTimeInput" value="25"></div>
+        <div class="pomo-input-subgroup" title="Длительность отдыха"><label>Отдых:</label><input type="number" id="breakTimeInput" value="5"></div>
+        <div class="pomo-input-subgroup" title="Дневная цель в минутах"><label>Цель (мин):</label><input type="number" id="dailyGoalInput" value="120"></div>
+    </div>
+
+    <div class="pomo-right-group">
+        <select id="audioNoiseSelect" class="audio-select-md3">
+            <!-- Dynamically populated via JS for 50 tracks -->
+        </select>
+        <div class="items-chest-bar" id="itemsChest" title="Ваш прогресс за сегодня">0 сессий 🍅 | 0 / 120 мин</div>
+    </div>
+</div>
+
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script type="module" src="/src/app.js"></script>
+</body>
+</html>
